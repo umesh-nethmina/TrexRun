@@ -3,9 +3,8 @@ build/
 *.exe
 
 # Downloaded libraries and DLLs
-freeglut/
+# We will commit freeglut so group members don't have to download it!
 freeglut.zip
-*.dll
 
 # IDE and OS specific files
 .vscode/
