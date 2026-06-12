@@ -40,8 +40,8 @@ GLuint loadTex(const char* path) {
 
 void Dino::loadTextures() {
     runTextures[0] = loadTex("assets/t_rex/run1.png");
-    runTextures[1] = loadTex("assets/t_rex/run2.png");
-    runTextures[2] = loadTex("assets/t_rex/run3.png");
+    runTextures[1] = loadTex("assets/t_rex/run3.png");
+    runTextures[2] = loadTex("assets/t_rex/run2.png");
     
     duckTextures[0] = loadTex("assets/t_rex/duck1.png");
     duckTextures[1] = loadTex("assets/t_rex/duck2.png");
@@ -72,8 +72,8 @@ void Dino::init() {
 
     // Running frame metadata
     runFrames[0] = { 800.0f, 591.0f, 640.0f };
-    runFrames[1] = { 818.0f, 605.0f, 657.0f };
-    runFrames[2] = { 794.0f, 591.0f, 633.0f };
+    runFrames[1] = { 794.0f, 591.0f, 633.0f };
+    runFrames[2] = { 818.0f, 605.0f, 657.0f };
 
     // Ducking frame metadata
     duckFrames[0] = { 673.0f, 512.0f, 477.0f };
