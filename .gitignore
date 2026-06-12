@@ -1,0 +1,18 @@
+# Build directories and binaries
+build/
+*.exe
+
+# Downloaded libraries and DLLs
+freeglut/
+freeglut.zip
+*.dll
+
+# IDE and OS specific files
+.vscode/
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+.DS_Store
+Thumbs.db
