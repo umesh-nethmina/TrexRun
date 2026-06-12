@@ -1,177 +1,156 @@
-/*
- * GLUT Shapes Demo
- *
- * Written by Nigel Stewart November 2003
- *
- * This program is test harness for the sphere, cone
- * and torus shapes in GLUT.
- *
- * Spinning wireframe and smooth shaded shapes are
- * displayed until the ESC or q key is pressed.  The
- * number of geometry stacks and slices can be adjusted
- * using the + and - keys.
- */
-
-#ifdef __APPLE__
-#include <GLUT/glut.h>
-#else
 #include <GL/glut.h>
-#endif
-
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <time.h>
 
-static int slices = 16;
-static int stacks = 16;
+#include "Constants.h"
+#include "Dino.h"
+#include "Obstacles.h"
 
-/* GLUT callback Handlers */
+// Game State
+bool gameOver = false;
+int score = 0;
+int highScore = 0;
+float gameSpeed = 5.0f;
+int frameCount = 0;
 
-static void resize(int width, int height)
-{
-    const float ar = (float) width / (float) height;
+Dino dino;
+ObstacleManager obstacleManager;
 
-    glViewport(0, 0, width, height);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glFrustum(-ar, ar, -1.0, 1.0, 2.0, 100.0);
-
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity() ;
+// Drawing Text
+void drawText(float x, float y, void* font, const char* string) {
+    glRasterPos2f(x, y);
+    int len = (int)strlen(string);
+    for (int i = 0; i < len; i++) {
+        glutBitmapCharacter(font, string[i]);
+    }
 }
 
-static void display(void)
-{
-    const double t = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
-    const double a = t*90.0;
+void initGame() {
+    dino.init();
+    obstacleManager.init();
+    
+    score = 0;
+    gameSpeed = 5.0f;
+    gameOver = false;
+    frameCount = 0;
+}
 
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glColor3d(1,0,0);
+bool checkCollision(Dino& d, Cactus& c) {
+    // Simple Axis-Aligned Bounding Box (AABB) collision
+    if (d.x < c.x + c.width &&
+        d.x + d.width > c.x &&
+        d.y < c.y + c.height &&
+        d.y + d.height > c.y) {
+        return true;
+    }
+    return false;
+}
 
-    glPushMatrix();
-        glTranslated(-2.4,1.2,-6);
-        glRotated(60,1,0,0);
-        glRotated(a,0,0,1);
-        glutSolidSphere(1,slices,stacks);
-    glPopMatrix();
+void update(int value) {
+    if (!gameOver) {
+        frameCount++;
+        // Increase score every 10 frames
+        if (frameCount % 10 == 0) {
+            score++;
+            // Speed up game gradually
+            if (score % 100 == 0) {
+                gameSpeed += 0.5f; 
+            }
+        }
 
-    glPushMatrix();
-        glTranslated(0,1.2,-6);
-        glRotated(60,1,0,0);
-        glRotated(a,0,0,1);
-        glutSolidCone(1,1,slices,stacks);
-    glPopMatrix();
+        dino.update();
+        obstacleManager.update(gameSpeed);
 
-    glPushMatrix();
-        glTranslated(2.4,1.2,-6);
-        glRotated(60,1,0,0);
-        glRotated(a,0,0,1);
-        glutSolidTorus(0.2,0.8,slices,stacks);
-    glPopMatrix();
+        // Check collisions
+        for (int i = 0; i < ObstacleManager::MAX_CACTI; i++) {
+            if (obstacleManager.cacti[i].active && checkCollision(dino, obstacleManager.cacti[i])) {
+                gameOver = true;
+                if (score > highScore) {
+                    highScore = score;
+                }
+            }
+        }
+    }
 
-    glPushMatrix();
-        glTranslated(-2.4,-1.2,-6);
-        glRotated(60,1,0,0);
-        glRotated(a,0,0,1);
-        glutWireSphere(1,slices,stacks);
-    glPopMatrix();
+    glutPostRedisplay();
+    glutTimerFunc(16, update, 0); // ~60 FPS
+}
 
-    glPushMatrix();
-        glTranslated(0,-1.2,-6);
-        glRotated(60,1,0,0);
-        glRotated(a,0,0,1);
-        glutWireCone(1,1,slices,stacks);
-    glPopMatrix();
+void display() {
+    glClear(GL_COLOR_BUFFER_BIT);
 
-    glPushMatrix();
-        glTranslated(2.4,-1.2,-6);
-        glRotated(60,1,0,0);
-        glRotated(a,0,0,1);
-        glutWireTorus(0.2,0.8,slices,stacks);
-    glPopMatrix();
+    // Draw Ground
+    glColor3f(0.3f, 0.3f, 0.3f);
+    glBegin(GL_LINES);
+    glVertex2f(0.0f, GROUND_Y);
+    glVertex2f((float)WINDOW_WIDTH, GROUND_Y);
+    glEnd();
+
+    dino.draw();
+    obstacleManager.draw();
+
+    // Draw Scores
+    glColor3f(0.0f, 0.0f, 0.0f); // Black text
+    char scoreStr[50];
+    sprintf(scoreStr, "HI %05d  %05d", highScore, score);
+    drawText(WINDOW_WIDTH - 200, WINDOW_HEIGHT - 30, GLUT_BITMAP_HELVETICA_18, scoreStr);
+
+    if (gameOver) {
+        drawText(WINDOW_WIDTH / 2 - 50, WINDOW_HEIGHT / 2, GLUT_BITMAP_HELVETICA_18, "G A M E   O V E R");
+        drawText(WINDOW_WIDTH / 2 - 80, WINDOW_HEIGHT / 2 - 30, GLUT_BITMAP_HELVETICA_12, "Press 'R' to Restart");
+    }
 
     glutSwapBuffers();
 }
 
-
-static void key(unsigned char key, int x, int y)
-{
-    switch (key)
-    {
-        case 27 :
-        case 'q':
-            exit(0);
-            break;
-
-        case '+':
-            slices++;
-            stacks++;
-            break;
-
-        case '-':
-            if (slices>3 && stacks>3)
-            {
-                slices--;
-                stacks--;
-            }
-            break;
+void keyboard(unsigned char key, int x, int y) {
+    if (key == 27) { // ESC key
+        exit(0);
     }
-
-    glutPostRedisplay();
+    
+    if (key == ' ' && !dino.isJumping && !gameOver) {
+        dino.jump();
+    }
+    
+    if ((key == 'r' || key == 'R') && gameOver) {
+        initGame();
+    }
 }
 
-static void idle(void)
-{
-    glutPostRedisplay();
+void specialKeys(int key, int x, int y) {
+    if (key == GLUT_KEY_UP && !dino.isJumping && !gameOver) {
+        dino.jump();
+    }
 }
 
-const GLfloat light_ambient[]  = { 0.0f, 0.0f, 0.0f, 1.0f };
-const GLfloat light_diffuse[]  = { 1.0f, 1.0f, 1.0f, 1.0f };
-const GLfloat light_specular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-const GLfloat light_position[] = { 2.0f, 5.0f, 5.0f, 0.0f };
+void initGL() {
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f); // White background
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluOrtho2D(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT);
+    glMatrixMode(GL_MODELVIEW);
+}
 
-const GLfloat mat_ambient[]    = { 0.7f, 0.7f, 0.7f, 1.0f };
-const GLfloat mat_diffuse[]    = { 0.8f, 0.8f, 0.8f, 1.0f };
-const GLfloat mat_specular[]   = { 1.0f, 1.0f, 1.0f, 1.0f };
-const GLfloat high_shininess[] = { 100.0f };
+int main(int argc, char** argv) {
+    srand((unsigned int)time(NULL));
 
-/* Program entry point */
-
-int main(int argc, char *argv[])
-{
     glutInit(&argc, argv);
-    glutInitWindowSize(640,480);
-    glutInitWindowPosition(10,10);
-    glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
+    glutInitWindowPosition(100, 100);
+    glutCreateWindow("Chrome Dinosaur Game Clone");
 
-    glutCreateWindow("GLUT Shapes");
+    initGL();
+    initGame();
 
-    glutReshapeFunc(resize);
     glutDisplayFunc(display);
-    glutKeyboardFunc(key);
-    glutIdleFunc(idle);
-
-    glClearColor(1,1,1,1);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
-
-    glEnable(GL_LIGHT0);
-    glEnable(GL_NORMALIZE);
-    glEnable(GL_COLOR_MATERIAL);
-    glEnable(GL_LIGHTING);
-
-    glLightfv(GL_LIGHT0, GL_AMBIENT,  light_ambient);
-    glLightfv(GL_LIGHT0, GL_DIFFUSE,  light_diffuse);
-    glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
-    glLightfv(GL_LIGHT0, GL_POSITION, light_position);
-
-    glMaterialfv(GL_FRONT, GL_AMBIENT,   mat_ambient);
-    glMaterialfv(GL_FRONT, GL_DIFFUSE,   mat_diffuse);
-    glMaterialfv(GL_FRONT, GL_SPECULAR,  mat_specular);
-    glMaterialfv(GL_FRONT, GL_SHININESS, high_shininess);
+    glutKeyboardFunc(keyboard);
+    glutSpecialFunc(specialKeys);
+    
+    glutTimerFunc(16, update, 0);
 
     glutMainLoop();
-
-    return EXIT_SUCCESS;
+    return 0;
 }
