@@ -143,6 +143,12 @@ int main(int argc, char** argv) {
     glutCreateWindow("Chrome Dinosaur Game Clone");
 
     initGL();
+    
+    // Enable alpha blending for transparent PNG backgrounds
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    dino.loadTextures();
     initGame();
 
     glutDisplayFunc(display);
