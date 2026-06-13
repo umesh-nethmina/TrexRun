@@ -56,6 +56,12 @@ Dino::Dino() {
     init();
 }
 
+#include <cmath>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 void Dino::init() {
     x = 100.0f;
     y = GROUND_Y;
@@ -70,6 +76,12 @@ void Dino::init() {
     hasDoubleJumped = false;
     facingLeft = false;
 
+    // Initialize 2D Transformation states
+    rotationAngle = 0.0f;
+    shearFactor = 0.0f;
+    scaleX = 1.0f;
+    scaleY = 1.0f;
+
     // Running frame metadata
     runFrames[0] = { 800.0f, 591.0f, 640.0f };
     runFrames[1] = { 794.0f, 591.0f, 633.0f };
@@ -81,7 +93,7 @@ void Dino::init() {
     duckFrames[2] = { 825.0f, 410.0f, 578.0f };
 }
 
-void Dino::update() {
+void Dino::update(float gameSpeed) {
     if (state == DEAD) return;
 
     if (isMovingLeft) {
@@ -98,11 +110,56 @@ void Dino::update() {
     if (state == JUMPING) {
         velocity -= GRAVITY;
         y += velocity;
+        
+        // Spin rotation animation: rotate by 9 degrees per frame during jump
+        rotationAngle += 9.0f;
+        if (rotationAngle >= 360.0f) {
+            rotationAngle -= 360.0f;
+        }
+
         if (y <= GROUND_Y) {
             y = GROUND_Y;
             state = RUNNING;
             velocity = 0.0f;
             hasDoubleJumped = false;
+            rotationAngle = 0.0f; // Reset rotation when landing
+        }
+    } else {
+        rotationAngle = 0.0f;
+    }
+
+    // Ducking scaling: smooth interpolation
+    if (state == DUCKING) {
+        // Smoothly scale Y down to 0.5f
+        if (scaleY > 0.5f) {
+            scaleY -= 0.1f;
+            if (scaleY < 0.5f) scaleY = 0.5f;
+        }
+    } else {
+        // Smoothly scale Y back to 1.0f
+        if (scaleY < 1.0f) {
+            scaleY += 0.1f;
+            if (scaleY > 1.0f) scaleY = 1.0f;
+        }
+    }
+
+    // Shearing: tilt forward depending on running speed
+    if (state == RUNNING) {
+        // Shear factor proportional to gameSpeed (e.g. gameSpeed * 0.02)
+        // Interpolate shear factor for smooth tilt changes
+        float targetShear = gameSpeed * 0.02f;
+        if (shearFactor < targetShear) {
+            shearFactor += 0.005f;
+            if (shearFactor > targetShear) shearFactor = targetShear;
+        } else if (shearFactor > targetShear) {
+            shearFactor -= 0.005f;
+            if (shearFactor < targetShear) shearFactor = targetShear;
+        }
+    } else {
+        // Return to 0 shear when jumping or ducking
+        if (shearFactor > 0.0f) {
+            shearFactor -= 0.02f;
+            if (shearFactor < 0.0f) shearFactor = 0.0f;
         }
     }
 
@@ -154,15 +211,63 @@ void Dino::draw() {
         glBindTexture(GL_TEXTURE_2D, currentTex);
     }
     
-    // Determine U coordinates based on which way the Dino is facing/walking
-    float u0 = facingLeft ? 1.0f : 0.0f;
-    float u1 = facingLeft ? 0.0f : 1.0f;
+    // 4 local corners relative to drawX, drawY:
+    // Bottom-Left, Bottom-Right, Top-Right, Top-Left
+    float localX[4] = { 0.0f, drawWidth, drawWidth, 0.0f };
+    float localY[4] = { 0.0f, 0.0f, drawHeight, drawHeight };
+    
+    // We will transform these corners manually
+    float transX[4], transY[4];
+    
+    // Convert angle to radians
+    float rad = rotationAngle * (float)(M_PI / 180.0f);
+    float cosA = cosf(rad);
+    float sinA = sinf(rad);
+    
+    // Pivot points
+    // For scaling and shearing: bottom-center of the local quad
+    float pivotSX = drawWidth / 2.0f;
+    float pivotSY = 0.0f;
+    
+    // For rotation: center of the scaled & sheared quad
+    float pivotRX = (drawWidth / 2.0f) * scaleX;
+    float pivotRY = (drawHeight / 2.0f) * scaleY;
 
+    for (int i = 0; i < 4; i++) {
+        float px = localX[i];
+        float py = localY[i];
+        
+        // 1. Reflection (Horizontal reflection across local vertical center line)
+        if (facingLeft) {
+            px = drawWidth - px;
+        }
+        
+        // 2. Scaling (relative to local bottom-center pivot)
+        px = pivotSX + (px - pivotSX) * scaleX;
+        py = pivotSY + (py - pivotSY) * scaleY;
+        
+        // 3. Shearing (X-shearing relative to local bottom pivot)
+        px = px + shearFactor * (py - pivotSY);
+        
+        // 4. Rotation (relative to local center pivot rx, ry)
+        float rx = px - pivotRX;
+        float ry = py - pivotRY;
+        float rotX = rx * cosA - ry * sinA;
+        float rotY = rx * sinA + ry * cosA;
+        px = rotX + pivotRX;
+        py = rotY + pivotRY;
+        
+        // 5. Translation to world coordinates
+        transX[i] = drawX + px;
+        transY[i] = drawY + py;
+    }
+
+    // Draw the manually transformed vertices
     glBegin(GL_QUADS);
-    glTexCoord2f(u0, 1.0f); glVertex2f(drawX, drawY);
-    glTexCoord2f(u1, 1.0f); glVertex2f(drawX + drawWidth, drawY);
-    glTexCoord2f(u1, 0.0f); glVertex2f(drawX + drawWidth, drawY + drawHeight);
-    glTexCoord2f(u0, 0.0f); glVertex2f(drawX, drawY + drawHeight);
+    glTexCoord2f(0.0f, 1.0f); glVertex2f(transX[0], transY[0]);
+    glTexCoord2f(1.0f, 1.0f); glVertex2f(transX[1], transY[1]);
+    glTexCoord2f(1.0f, 0.0f); glVertex2f(transX[2], transY[2]);
+    glTexCoord2f(0.0f, 0.0f); glVertex2f(transX[3], transY[3]);
     glEnd();
     
     glBindTexture(GL_TEXTURE_2D, 0); // unbind
