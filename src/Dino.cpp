@@ -111,10 +111,14 @@ void Dino::update(float gameSpeed) {
         velocity -= GRAVITY;
         y += velocity;
         
-        // Spin rotation animation: rotate by 9 degrees per frame during jump
-        rotationAngle += 9.0f;
-        if (rotationAngle >= 360.0f) {
-            rotationAngle -= 360.0f;
+        // Spin rotation animation: rotate only during double jump
+        if (hasDoubleJumped) {
+            rotationAngle += 12.0f;
+            if (rotationAngle >= 360.0f) {
+                rotationAngle -= 360.0f;
+            }
+        } else {
+            rotationAngle = 0.0f;
         }
 
         if (y <= GROUND_Y) {
