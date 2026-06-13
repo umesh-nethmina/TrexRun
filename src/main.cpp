@@ -7,86 +7,73 @@
 #include "Constants.h"
 #include "Dino.h"
 #include "Obstacles.h"
+#include "UIManager.h"
 
-// Game State
-bool gameOver = false;
-bool isPaused = false;
+// ── Game State
+bool gameOver    = false;
+bool isPaused    = false;
 bool gameStarted = false;
-int score = 0;
-int highScore = 0;
-float gameSpeed = 5.0f;
-int frameCount = 0;
+int  score       = 0;
+int  highScore   = 0;
+float gameSpeed  = 5.0f;
+int  frameCount  = 0;
 
-Dino dino;
+Dino            dino;
 ObstacleManager obstacleManager;
 
-// Drawing Text
-void drawText(float x, float y, void* font, const char* string) {
-    glRasterPos2f(x, y);
-    int len = (int)strlen(string);
-    for (int i = 0; i < len; i++) {
-        glutBitmapCharacter(font, string[i]);
-    }
+// ── Collision (AABB)
+bool checkCollision(Dino& d, Cactus& c) {
+    return (d.x < c.x + c.width  &&
+            d.x + d.width > c.x  &&
+            d.y < c.y + c.height &&
+            d.y + d.height > c.y);
 }
 
+// ── initGame
 void initGame() {
     dino.init();
     dino.loadTextures();
     obstacleManager.init();
-    
-    score = 0;
-    gameSpeed = 5.0f;
-    gameOver = false;
-    isPaused = false;
+    score      = 0;
+    gameSpeed  = 5.0f;
+    gameOver   = false;
+    isPaused   = false;
     frameCount = 0;
 }
 
-bool checkCollision(Dino& d, Cactus& c) {
-    // Simple Axis-Aligned Bounding Box (AABB) collision
-    if (d.x < c.x + c.width &&
-        d.x + d.width > c.x &&
-        d.y < c.y + c.height &&
-        d.y + d.height > c.y) {
-        return true;
-    }
-    return false;
-}
-
+// ── Update loop (~60 FPS)
 void update(int value) {
+    uiManager.update();   // advance UI animations every frame
+
     if (gameStarted && !gameOver && !isPaused) {
         frameCount++;
-        // Increase score every 10 frames
         if (frameCount % 10 == 0) {
             score++;
-            // Speed up game gradually
-            if (score % 100 == 0) {
-                gameSpeed += 0.5f; 
-            }
+            if (score % 100 == 0) gameSpeed += 0.5f;
         }
-
         dino.update(gameSpeed);
         obstacleManager.update(gameSpeed);
 
-        // Check collisions
         for (int i = 0; i < ObstacleManager::MAX_CACTI; i++) {
-            if (obstacleManager.cacti[i].active && checkCollision(dino, obstacleManager.cacti[i])) {
+            if (obstacleManager.cacti[i].active &&
+                checkCollision(dino, obstacleManager.cacti[i])) {
                 gameOver = true;
                 dino.die();
-                if (score > highScore) {
-                    highScore = score;
-                }
+                if (score > highScore) highScore = score;
+                uiManager.showGameOverScreen(score, highScore);
             }
         }
     }
 
     glutPostRedisplay();
-    glutTimerFunc(16, update, 0); // ~60 FPS
+    glutTimerFunc(16, update, 0);
 }
 
+// ── Display
 void display() {
     glClear(GL_COLOR_BUFFER_BIT);
 
-    // Draw Ground
+    // Ground line
     glColor3f(0.3f, 0.3f, 0.3f);
     glBegin(GL_LINES);
     glVertex2f(0.0f, GROUND_Y);
@@ -96,90 +83,71 @@ void display() {
     dino.draw();
     obstacleManager.draw();
 
-    // Draw Scores
-    glColor3f(0.0f, 0.0f, 0.0f); // Black text
-    char scoreStr[50];
-    sprintf(scoreStr, "HI %05d  %05d", highScore, score);
-    drawText(WINDOW_WIDTH - 200, WINDOW_HEIGHT - 30, GLUT_BITMAP_HELVETICA_18, scoreStr);
-
     if (!gameStarted) {
-        drawText(WINDOW_WIDTH / 2 - 80, WINDOW_HEIGHT / 2, GLUT_BITMAP_HELVETICA_18, "PRESS ENTER TO START");
+        // Start screen
+        uiManager.drawStartMenuContent();
     } else if (gameOver) {
-        drawText(WINDOW_WIDTH / 2 - 50, WINDOW_HEIGHT / 2, GLUT_BITMAP_HELVETICA_18, "G A M E   O V E R");
-        drawText(WINDOW_WIDTH / 2 - 80, WINDOW_HEIGHT / 2 - 30, GLUT_BITMAP_HELVETICA_12, "Press ENTER to Restart");
-    } else if (isPaused) {
-        drawText(WINDOW_WIDTH / 2 - 30, WINDOW_HEIGHT / 2, GLUT_BITMAP_HELVETICA_18, "PAUSED");
+        // Game over screen  
+        uiManager.drawGameOverContent(score, highScore);
+    } else {
+        // In-game HUD (score + optional pause overlay)
+        uiManager.drawHUD(score, highScore, isPaused);
     }
 
     glutSwapBuffers();
 }
 
+// ── Keyboard
 void keyboard(unsigned char key, int x, int y) {
-    if (key == 27) { // ESC key
-        exit(0);
-    }
-    
-    // Space for pause and play
+    if (key == 27) exit(0); // ESC
+
     if (key == ' ' && gameStarted && !gameOver) {
         isPaused = !isPaused;
+        if (isPaused) uiManager.showPauseMenu();
     }
-    
-    // Enter for start and restart
-    if (key == 13) {
+
+    if (key == 13) { // ENTER
         if (!gameStarted) {
             gameStarted = true;
+            uiManager.activeMenu = MENU_NONE;
         } else if (gameOver) {
             initGame();
             gameStarted = true;
+            uiManager.activeMenu = MENU_NONE;
         }
     }
 }
 
-void keyboardUp(unsigned char key, int x, int y) {
-    // Unused but needed for callback
-}
+void keyboardUp(unsigned char key, int x, int y) {}
 
 void specialKeys(int key, int x, int y) {
     if (gameStarted && !isPaused && !gameOver) {
-        if (key == GLUT_KEY_UP && dino.state != DEAD) {
-            dino.jump();
-        }
-        if (key == GLUT_KEY_DOWN && dino.state != DEAD) {
-            dino.duck();
-        }
-        if (key == GLUT_KEY_LEFT && dino.state != DEAD) {
-            dino.isMovingLeft = true;
-        }
-        if (key == GLUT_KEY_RIGHT && dino.state != DEAD) {
-            dino.isMovingRight = true;
-        }
+        if (key == GLUT_KEY_UP   && dino.state != DEAD) dino.jump();
+        if (key == GLUT_KEY_DOWN && dino.state != DEAD) dino.duck();
+        if (key == GLUT_KEY_LEFT && dino.state != DEAD) dino.isMovingLeft  = true;
+        if (key == GLUT_KEY_RIGHT&& dino.state != DEAD) dino.isMovingRight = true;
     }
 }
 
 void specialKeysUp(int key, int x, int y) {
-    if (key == GLUT_KEY_DOWN && !gameOver) {
-        dino.unduck();
-    }
-    if (key == GLUT_KEY_LEFT) {
-        dino.isMovingLeft = false;
-    }
-    if (key == GLUT_KEY_RIGHT) {
-        dino.isMovingRight = false;
-    }
+    if (key == GLUT_KEY_DOWN  && !gameOver) dino.unduck();
+    if (key == GLUT_KEY_LEFT)               dino.isMovingLeft  = false;
+    if (key == GLUT_KEY_RIGHT)              dino.isMovingRight = false;
 }
 
+// ── initGL
 void initGL() {
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f); // White background
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     gluOrtho2D(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT);
     glMatrixMode(GL_MODELVIEW);
-    
     glEnable(GL_TEXTURE_2D);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
+// ── main
 int main(int argc, char** argv) {
     srand((unsigned int)time(NULL));
 
@@ -192,12 +160,18 @@ int main(int argc, char** argv) {
     initGL();
     initGame();
 
+    // Load high score from file
+    highScore = loadHighScore();
+
+    // Init UI — start menu slides in
+    uiManager.init();
+    uiManager.showStartMenu();
+
     glutDisplayFunc(display);
     glutKeyboardFunc(keyboard);
     glutKeyboardUpFunc(keyboardUp);
     glutSpecialFunc(specialKeys);
     glutSpecialUpFunc(specialKeysUp);
-    
     glutTimerFunc(16, update, 0);
 
     glutMainLoop();
