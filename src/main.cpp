@@ -64,7 +64,7 @@ void update(int value) {
             }
         }
 
-        dino.update();
+        dino.update(gameSpeed);
         obstacleManager.update(gameSpeed);
 
         // Check collisions

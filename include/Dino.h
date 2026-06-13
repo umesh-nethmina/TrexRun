@@ -35,9 +35,15 @@ struct Dino {
     SpriteFrame runFrames[3];
     SpriteFrame duckFrames[3];
 
+    // 2D Transformation states
+    float rotationAngle;
+    float shearFactor;
+    float scaleX;
+    float scaleY;
+
     Dino();
     void init();
-    void update();
+    void update(float gameSpeed = 5.0f);
     void draw();
     void jump();
     void duck();
