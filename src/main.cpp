@@ -10,6 +10,8 @@
 
 // Game State
 bool gameOver = false;
+bool isPaused = false;
+bool gameStarted = false;
 int score = 0;
 int highScore = 0;
 float gameSpeed = 5.0f;
@@ -29,11 +31,13 @@ void drawText(float x, float y, void* font, const char* string) {
 
 void initGame() {
     dino.init();
+    dino.loadTextures();
     obstacleManager.init();
     
     score = 0;
     gameSpeed = 5.0f;
     gameOver = false;
+    isPaused = false;
     frameCount = 0;
 }
 
@@ -49,7 +53,7 @@ bool checkCollision(Dino& d, Cactus& c) {
 }
 
 void update(int value) {
-    if (!gameOver) {
+    if (gameStarted && !gameOver && !isPaused) {
         frameCount++;
         // Increase score every 10 frames
         if (frameCount % 10 == 0) {
@@ -67,6 +71,7 @@ void update(int value) {
         for (int i = 0; i < ObstacleManager::MAX_CACTI; i++) {
             if (obstacleManager.cacti[i].active && checkCollision(dino, obstacleManager.cacti[i])) {
                 gameOver = true;
+                dino.die();
                 if (score > highScore) {
                     highScore = score;
                 }
@@ -97,9 +102,13 @@ void display() {
     sprintf(scoreStr, "HI %05d  %05d", highScore, score);
     drawText(WINDOW_WIDTH - 200, WINDOW_HEIGHT - 30, GLUT_BITMAP_HELVETICA_18, scoreStr);
 
-    if (gameOver) {
+    if (!gameStarted) {
+        drawText(WINDOW_WIDTH / 2 - 80, WINDOW_HEIGHT / 2, GLUT_BITMAP_HELVETICA_18, "PRESS ENTER TO START");
+    } else if (gameOver) {
         drawText(WINDOW_WIDTH / 2 - 50, WINDOW_HEIGHT / 2, GLUT_BITMAP_HELVETICA_18, "G A M E   O V E R");
-        drawText(WINDOW_WIDTH / 2 - 80, WINDOW_HEIGHT / 2 - 30, GLUT_BITMAP_HELVETICA_12, "Press 'R' to Restart");
+        drawText(WINDOW_WIDTH / 2 - 80, WINDOW_HEIGHT / 2 - 30, GLUT_BITMAP_HELVETICA_12, "Press ENTER to Restart");
+    } else if (isPaused) {
+        drawText(WINDOW_WIDTH / 2 - 30, WINDOW_HEIGHT / 2, GLUT_BITMAP_HELVETICA_18, "PAUSED");
     }
 
     glutSwapBuffers();
@@ -110,18 +119,52 @@ void keyboard(unsigned char key, int x, int y) {
         exit(0);
     }
     
-    if (key == ' ' && !dino.isJumping && !gameOver) {
-        dino.jump();
+    // Space for pause and play
+    if (key == ' ' && gameStarted && !gameOver) {
+        isPaused = !isPaused;
     }
     
-    if ((key == 'r' || key == 'R') && gameOver) {
-        initGame();
+    // Enter for start and restart
+    if (key == 13) {
+        if (!gameStarted) {
+            gameStarted = true;
+        } else if (gameOver) {
+            initGame();
+            gameStarted = true;
+        }
     }
 }
 
+void keyboardUp(unsigned char key, int x, int y) {
+    // Unused but needed for callback
+}
+
 void specialKeys(int key, int x, int y) {
-    if (key == GLUT_KEY_UP && !dino.isJumping && !gameOver) {
-        dino.jump();
+    if (gameStarted && !isPaused && !gameOver) {
+        if (key == GLUT_KEY_UP && dino.state != DEAD) {
+            dino.jump();
+        }
+        if (key == GLUT_KEY_DOWN && dino.state != DEAD) {
+            dino.duck();
+        }
+        if (key == GLUT_KEY_LEFT && dino.state != DEAD) {
+            dino.isMovingLeft = true;
+        }
+        if (key == GLUT_KEY_RIGHT && dino.state != DEAD) {
+            dino.isMovingRight = true;
+        }
+    }
+}
+
+void specialKeysUp(int key, int x, int y) {
+    if (key == GLUT_KEY_DOWN && !gameOver) {
+        dino.unduck();
+    }
+    if (key == GLUT_KEY_LEFT) {
+        dino.isMovingLeft = false;
+    }
+    if (key == GLUT_KEY_RIGHT) {
+        dino.isMovingRight = false;
     }
 }
 
@@ -131,6 +174,10 @@ void initGL() {
     glLoadIdentity();
     gluOrtho2D(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT);
     glMatrixMode(GL_MODELVIEW);
+    
+    glEnable(GL_TEXTURE_2D);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 int main(int argc, char** argv) {
@@ -147,7 +194,9 @@ int main(int argc, char** argv) {
 
     glutDisplayFunc(display);
     glutKeyboardFunc(keyboard);
+    glutKeyboardUpFunc(keyboardUp);
     glutSpecialFunc(specialKeys);
+    glutSpecialUpFunc(specialKeysUp);
     
     glutTimerFunc(16, update, 0);
 
