@@ -8,6 +8,7 @@
 #include "Dino.h"
 #include "Obstacles.h"
 #include "UIManager.h"
+#include "Environment.h"
 
 // ── Game State
 bool gameOver    = false;
@@ -20,6 +21,7 @@ int  frameCount  = 0;
 
 Dino            dino;
 ObstacleManager obstacleManager;
+Environment     environment;
 
 // ── Collision (AABB)
 bool checkCollision(Dino& d, Cactus& c) {
@@ -34,6 +36,7 @@ void initGame() {
     dino.init();
     dino.loadTextures();
     obstacleManager.init();
+    environment.init();
     score      = 0;
     gameSpeed  = 5.0f;
     gameOver   = false;
@@ -53,6 +56,7 @@ void update(int value) {
         }
         dino.update(gameSpeed);
         obstacleManager.update(gameSpeed);
+        environment.update(gameSpeed, frameCount);
 
         for (int i = 0; i < ObstacleManager::MAX_CACTI; i++) {
             if (obstacleManager.cacti[i].active &&
@@ -73,12 +77,7 @@ void update(int value) {
 void display() {
     glClear(GL_COLOR_BUFFER_BIT);
 
-    // Ground line
-    glColor3f(0.3f, 0.3f, 0.3f);
-    glBegin(GL_LINES);
-    glVertex2f(0.0f, GROUND_Y);
-    glVertex2f((float)WINDOW_WIDTH, GROUND_Y);
-    glEnd();
+    environment.draw();
 
     dino.draw();
     obstacleManager.draw();

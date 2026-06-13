@@ -3,12 +3,12 @@ if (-not (Test-Path "libfreeglut.dll")) {
     Copy-Item ".\freeglut\freeglut\bin\libfreeglut.dll" -Destination ".\libfreeglut.dll"
 }
 
-# Compile main.cpp
+# Compile source files
 # -I points to the include directory
 # -L points to the library directory (using 32-bit libs since MinGW is 32-bit)
 # -lfreeglut, -lglu32, -lopengl32 are the required libraries
 Write-Host "Compiling source files..."
-g++ main.cpp Dino.cpp Obstacles.cpp -o DinosaurGame.exe -I.\freeglut\freeglut\include -L.\freeglut\freeglut\lib -lfreeglut -lglu32 -lopengl32
+g++ src/main.cpp src/Dino.cpp src/Obstacles.cpp src/UIManager.cpp src/Environment.cpp -o DinosaurGame.exe -I.\freeglut\freeglut\include -I.\include -L.\freeglut\freeglut\lib -lfreeglut -lglu32 -lopengl32
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "Compilation successful! Running DinosaurGame.exe..."

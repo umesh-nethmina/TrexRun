@@ -7,4 +7,9 @@ const float GRAVITY = 0.6f;
 const float JUMP_STRENGTH = 12.0f;
 const float GROUND_Y = 100.0f;
 
+// Environment constants
+const float GROUND_HEIGHT = 20.0f;
+const float PARALLAX_FACTOR = 0.2f;
+const int   GROUND_TILE_WIDTH = 256;
+
 #endif
