@@ -25,10 +25,26 @@ Environment     environment;
 
 // ── Collision (AABB)
 bool checkCollision(Dino& d, Cactus& c) {
-    return (d.x < c.x + c.width  &&
-            d.x + d.width > c.x  &&
-            d.y < c.y + c.height &&
-            d.y + d.height > c.y);
+    // Shrink the T-Rex hitbox so it matches the physical character outline, 
+    // ignoring the long tail and snout edges that make it feel unfair.
+    float shrinkX = 10.0f; 
+    float shrinkY = 10.0f; 
+    
+    float dinoLeft = d.x + shrinkX;
+    float dinoRight = d.x + d.width - shrinkX;
+    float dinoBottom = d.y + shrinkY;
+    float dinoTop = d.y + d.height - shrinkY;
+    
+    // Also slightly shrink the cactus hitbox
+    float cactusLeft = c.x + 4.0f;
+    float cactusRight = c.x + c.width - 4.0f;
+    float cactusBottom = c.y;
+    float cactusTop = c.y + c.height - 4.0f;
+
+    return (dinoLeft < cactusRight &&
+            dinoRight > cactusLeft &&
+            dinoBottom < cactusTop &&
+            dinoTop > cactusBottom);
 }
 
 // ── initGame
