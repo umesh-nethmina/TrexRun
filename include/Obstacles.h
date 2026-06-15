@@ -8,6 +8,17 @@ struct Cactus {
     float height;
     bool active;
     
+    // Falling meteor physics and aesthetics
+    float vx;
+    float vy;
+    bool isStuck;
+    int type;
+    float rotation;
+    float rotSpeed;
+    float trailX[8];
+    float trailY[8];
+    int trailCount;
+    
     Cactus();
 };
 

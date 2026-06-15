@@ -6,13 +6,10 @@
 #include <algorithm>
 
 Environment::Environment() {
-    // ctor does nothing; init() does the setup
     currentGameSpeed = 0.0f;
     currentFrame = 0;
 
-    // Define an irregular mountain ridge (x offset, height above baseline)
-    // Points are chosen to create a natural-looking silhouette with varied peaks and valleys.
-    // X values increase from 0 to patternWidth.
+    // Near mountain ridge (foreground silhouette)
     mountainRidge = {
         {   0,  20},
         {  30,  45},
@@ -36,12 +33,31 @@ Environment::Environment() {
         {1150,  70}
     };
 
-    // Ensure points are sorted by x (they are)
-    // Compute pattern width as distance from first to last point
     if (!mountainRidge.empty()) {
         patternWidth = mountainRidge.back().x - mountainRidge.front().x;
     } else {
         patternWidth = 0.0f;
+    }
+
+    // Far mountain ridge (broader and taller background silhouette)
+    farMountainRidge = {
+        {   0,  50},
+        { 100, 120},
+        { 220,  70},
+        { 350, 150},
+        { 480,  80},
+        { 600, 170},
+        { 720,  90},
+        { 850, 140},
+        { 980,  60},
+        {1100, 110},
+        {1250,  50}
+    };
+
+    if (!farMountainRidge.empty()) {
+        farPatternWidth = farMountainRidge.back().x - farMountainRidge.front().x;
+    } else {
+        farPatternWidth = 0.0f;
     }
 }
 
@@ -55,25 +71,25 @@ void Environment::init() {
         tiles[i].height = GROUND_HEIGHT;
     }
 
-    // ----- Far parallax layer (silhouette mountains) -----
+    // ----- Far parallax layer (Far Mountains) -----
     farLayer.x = 0.0f;
-    farLayer.y = WINDOW_HEIGHT * 0.35f;   // place mountains above ground, below clouds
-    farLayer.width = (float)WINDOW_WIDTH * 2.0f; // wide enough to scroll
-    farLayer.height = 200.0f;            // height of the mountain area (not used directly)
-    farLayer.speedFactor = 0.04f;        // very slow parallax
+    farLayer.y = GROUND_Y;                // base Y sits exactly on the ground platform
+    farLayer.width = (float)WINDOW_WIDTH * 2.0f; 
+    farLayer.height = 200.0f;            
+    farLayer.speedFactor = 0.02f;        // very slow scrolling for depth
 
-    // ----- Mid parallax layer (clouds) -----
+    // ----- Mid parallax layer (Near Mountains) -----
     midLayer.x = 0.0f;
-    midLayer.y = WINDOW_HEIGHT * 0.60f;  // a bit higher than mountains
+    midLayer.y = GROUND_Y;                // base Y sits exactly on the ground platform
     midLayer.width = (float)WINDOW_WIDTH * 2.0f;
-    midLayer.height = WINDOW_HEIGHT * 0.25f;
-    midLayer.speedFactor = 0.12f;        // slower than ground
+    midLayer.height = 200.0f;
+    midLayer.speedFactor = 0.05f;        // faster than farLayer
 
     // ----- Time of day -----
     timeOfDay = 0.0f; // start at midnight
 
-    // Set mountain base Y from farLayer.y
-    mountainBaseY = farLayer.y;
+    // Set mountain base Y
+    mountainBaseY = GROUND_Y;
 }
 
 void Environment::update(float gameSpeed, int frameCount) {
@@ -81,13 +97,15 @@ void Environment::update(float gameSpeed, int frameCount) {
     currentGameSpeed = gameSpeed;
     currentFrame = frameCount;
 
-    // Update ground tiles
+    // Ground tiles scrolling is disabled as the platform is now a solid continuous block
+    /*
     for (int i = 0; i < 3; ++i) {
         tiles[i].x -= gameSpeed;
         if (tiles[i].x + tiles[i].width < 0.0f) {
             recycleTile(tiles[i]);
         }
     }
+    */
 
     // Update parallax layers
     farLayer.x -= gameSpeed * farLayer.speedFactor;
@@ -165,104 +183,130 @@ void Environment::draw() {
         drawCircleBresenham(sunX - 5, sunY + 12, 6, true);
     }
 
-    // Draw clouds (mid layer) - lighter quads
-    drawClouds();
+    // Draw far mountains (background parallax layer)
+    drawFarMountains();
 
-    // Draw mountains (far layer) using Bresenham line silhouette (filled)
-    drawMountains();
+    // Draw near mountains (foreground parallax layer)
+    drawNearMountains();
 
-    // Draw ground tiles
+    // Draw ground platform
     drawGround();
 }
 
 void Environment::drawGround() {
-    glColor3f(0.2f, 0.2f, 0.2f);
-    for (int i = 0; i < 3; ++i) {
-        glBegin(GL_QUADS);
-            glVertex2f(tiles[i].x, tiles[i].y);
-            glVertex2f(tiles[i].x + tiles[i].width, tiles[i].y);
-            glVertex2f(tiles[i].x + tiles[i].width, tiles[i].y + tiles[i].height);
-            glVertex2f(tiles[i].x, tiles[i].y + tiles[i].height);
-        glEnd();
-    }
+  // Draw main ground platform body with vertical gradient (from Y=0 to Y=GROUND_Y)
+  // Deep warm brown to dark charcoal brown
+  glBegin(GL_QUADS);
+  glColor3f(0.28f, 0.18f, 0.12f); // Earthy warm brown at top
+  glVertex2f(0.0f, GROUND_Y);
+  glVertex2f((float)WINDOW_WIDTH, GROUND_Y);
+  glColor3f(0.12f, 0.08f, 0.06f); // Dark charcoal brown at bottom
+  glVertex2f((float)WINDOW_WIDTH, 0.0f);
+  glVertex2f(0.0f, 0.0f);
+  glEnd();
 }
 
 void Environment::recycleTile(GroundTile& tile) {
-    // Find the tile that is furthest to the right and place this one after it
     float furthestRight = tiles[0].x;
     for (int i = 1; i < 3; ++i) {
         if (tiles[i].x > furthestRight) furthestRight = tiles[i].x;
     }
     tile.x = furthestRight + GROUND_TILE_WIDTH;
-    // y, width, height stay the same
 }
 
-void Environment::drawClouds() {
-    // Draw a simple cloud layer as a set of puffy quads (or just a single quad for simplicity)
-    // We'll draw a few ellipsoid-like quads to represent clouds.
-    // For simplicity, we'll just draw a light gray stretched quad.
-    glColor3f(0.9f, 0.9f, 0.95f); // almost white
-    glBegin(GL_QUADS);
-        glVertex2f(midLayer.x, midLayer.y);
-        glVertex2f(midLayer.x + midLayer.width, midLayer.y);
-        glVertex2f(midLayer.x + midLayer.width, midLayer.y + midLayer.height);
-        glVertex2f(midLayer.x, midLayer.y + midLayer.height);
-    glEnd();
-}
+void Environment::drawFarMountains() {
+    if (farMountainRidge.empty()) return;
 
-void Environment::drawMountains() {
-    if (mountainRidge.empty()) return;
-
-    // Determine how many pattern repeats we need to cover the visible width plus some margin
-    int patternCount = (int)ceil((farLayer.width + patternWidth) / patternWidth) + 1;
+    // Use farLayer properties
+    int patternCount = (int)ceil((farLayer.width + farPatternWidth) / farPatternWidth) + 1;
     int startOffset = (int)farLayer.x;
 
-    // Choose mountain color based on day/night (dark gray, slightly tinted by sky)
-    float baseIntensity = 0.15f; // mountain base darkness
-    float dayFactor = timeOfDay; // 0 = night, 1 = day
-    // At night mountains are a bit darker; at day they are slightly lighter (still dark)
-    float intensity = baseIntensity + 0.05f * dayFactor; // range ~0.15-0.20
-    glColor3f(intensity, intensity, intensity);
+    float dayFactor = timeOfDay;
+    // Deep magical violet-indigo
+    float r = 0.10f + 0.08f * dayFactor;
+    float g = 0.06f + 0.06f * dayFactor;
+    float b = 0.18f + 0.10f * dayFactor;
+    glColor3f(r, g, b);
 
     for (int i = -1; i <= patternCount; ++i) {
-        float patternStartX = startOffset + i * patternWidth;
-        // Draw filled silhouette for this pattern repeat
-        // We'll iterate over integer x positions within the pattern width
+        float patternStartX = startOffset + i * farPatternWidth;
         int startX = (int)patternStartX;
-        int endX   = (int)(patternStartX + patternWidth);
+        int endX   = (int)(patternStartX + farPatternWidth);
         for (int x = startX; x < endX; ++x) {
-            float localX = x - patternStartX; // in [0, patternWidth]
-            float ridgeY = getRidgeHeight(localX); // height above base (>=0)
+            float localX = x - patternStartX;
+            float ridgeY = getFarRidgeHeight(localX);
             int yTop = (int)(mountainBaseY + ridgeY);
             int yBase = (int)mountainBaseY;
-            // Draw vertical line from base to top (inclusive)
             drawLineBresenham(x, yBase, x, yTop);
         }
     }
 }
 
-/* Helper: linear interpolation to get ridge height at localX */
+void Environment::drawNearMountains() {
+    if (mountainRidge.empty()) return;
+
+    // Use midLayer properties
+    int patternCount = (int)ceil((midLayer.width + patternWidth) / patternWidth) + 1;
+    int startOffset = (int)midLayer.x;
+
+    float dayFactor = timeOfDay;
+    // Dark charcoal-purple
+    float r = 0.06f + 0.04f * dayFactor;
+    float g = 0.05f + 0.03f * dayFactor;
+    float b = 0.09f + 0.06f * dayFactor;
+    glColor3f(r, g, b);
+
+    for (int i = -1; i <= patternCount; ++i) {
+        float patternStartX = startOffset + i * patternWidth;
+        int startX = (int)patternStartX;
+        int endX   = (int)(patternStartX + patternWidth);
+        for (int x = startX; x < endX; ++x) {
+            float localX = x - patternStartX;
+            float ridgeY = getRidgeHeight(localX);
+            int yTop = (int)(mountainBaseY + ridgeY);
+            int yBase = (int)mountainBaseY;
+            drawLineBresenham(x, yBase, x, yTop);
+        }
+    }
+}
+
 float Environment::getRidgeHeight(float localX) const {
     if (mountainRidge.size() < 2) return 0.0f;
-    // Ensure localX is within [0, patternWidth]; wrap if needed (should already be within due to loop)
     if (localX < 0.0f) localX = 0.0f;
     if (localX > patternWidth) localX = patternWidth;
 
-    // Find segment where localX lies between points[i].x and points[i+1].x
     for (size_t i = 0; i + 1 < mountainRidge.size(); ++i) {
         const Point& p0 = mountainRidge[i];
         const Point& p1 = mountainRidge[i+1];
         if (localX >= p0.x && localX <= p1.x) {
-            // Avoid division by zero (should not happen as x's are increasing)
             float segLen = (float)(p1.x - p0.x);
             if (segLen == 0.0f) return (float)p0.y;
             float t = (localX - p0.x) / segLen;
             return (float)p0.y + t * ((float)p1.y - (float)p0.y);
         }
     }
-    // If localX is exactly at the last point, return its y
     if (!mountainRidge.empty())
         return (float)mountainRidge.back().y;
+    return 0.0f;
+}
+
+float Environment::getFarRidgeHeight(float localX) const {
+    if (farMountainRidge.size() < 2) return 0.0f;
+    if (localX < 0.0f) localX = 0.0f;
+    if (localX > farPatternWidth) localX = farPatternWidth;
+
+    for (size_t i = 0; i + 1 < farMountainRidge.size(); ++i) {
+        const Point& p0 = farMountainRidge[i];
+        const Point& p1 = farMountainRidge[i+1];
+        if (localX >= p0.x && localX <= p1.x) {
+            float segLen = (float)(p1.x - p0.x);
+            if (segLen == 0.0f) return (float)p0.y;
+            float t = (localX - p0.x) / segLen;
+            return (float)p0.y + t * ((float)p1.y - (float)p0.y);
+        }
+    }
+    if (!farMountainRidge.empty())
+        return (float)farMountainRidge.back().y;
     return 0.0f;
 }
 

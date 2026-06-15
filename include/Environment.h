@@ -28,8 +28,8 @@ public:
 private:
     void recycleTile(GroundTile& tile);
     void drawGround();               // draws scrolling ground using tiles
-    void drawClouds();               // draws mid parallax layer (clouds)
-    void drawMountains();            // draws far parallax layer (mountain silhouette) using Bresenham
+    void drawFarMountains();         // draws far parallax layer of mountains
+    void drawNearMountains();        // draws near parallax layer of mountains
     void drawSky(float dayNightFactor); // draws gradient sky, sun/moon using Bresenham circle
     void drawStars(float dayNightFactor); // draws stars (more visible at night)
     // Bresenham helpers
@@ -38,19 +38,22 @@ private:
 
     GroundTile tiles[3];             // enough tiles to cover screen + a little extra
     ParallaxLayer farLayer;          // far parallax layer (mountains) – only x used for scroll
-    ParallaxLayer midLayer;          // e.g., clouds
+    ParallaxLayer midLayer;          // near parallax layer (mountains)
     float timeOfDay;                 // 0.0 = night, 1.0 = day, loops
     float currentGameSpeed;          // latest gameSpeed passed to update
     int    currentFrame;             // latest frameCount passed to update
 
     // Mountain silhouette data
     struct Point { int x; int y; };  // x: horizontal offset from pattern start, y: height above baseline (>=0)
-    std::vector<Point> mountainRidge; // control points of the ridge (sorted by x, covering [0, patternWidth])
+    std::vector<Point> mountainRidge; // control points of the near ridge
+    std::vector<Point> farMountainRidge; // control points of the far ridge
     float mountainBaseY;             // Y coordinate of the mountain base (where fill stops)
-    float patternWidth;              // width of one repeating pattern (in world units)
+    float patternWidth;              // width of one near repeating pattern (in world units)
+    float farPatternWidth;           // width of one far repeating pattern (in world units)
 
-    // Helper: get ridge height (above base) at a given localX within [0, patternWidth]
+    // Helpers: get ridge height (above base) at a given localX within pattern
     float getRidgeHeight(float localX) const;
+    float getFarRidgeHeight(float localX) const;
 };
 
 #endif // ENVIRONMENT_H
