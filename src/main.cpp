@@ -16,7 +16,7 @@ bool isPaused    = false;
 bool gameStarted = false;
 int  score       = 0;
 int  highScore   = 0;
-float gameSpeed  = 5.0f;
+float gameSpeed  = 7.0f;
 int  frameCount  = 0;
 
 Dino            dino;
@@ -54,7 +54,7 @@ void initGame() {
     obstacleManager.init();
     environment.init();
     score      = 0;
-    gameSpeed  = 5.0f;
+    gameSpeed  = 7.0f;
     gameOver   = false;
     isPaused   = false;
     frameCount = 0;
@@ -68,7 +68,7 @@ void update(int value) {
         frameCount++;
         if (frameCount % 10 == 0) {
             score++;
-            if (score % 100 == 0) gameSpeed += 0.5f;
+            if (score % 100 == 0) gameSpeed += 1.0f;
         }
         dino.update(gameSpeed);
         obstacleManager.update(gameSpeed);

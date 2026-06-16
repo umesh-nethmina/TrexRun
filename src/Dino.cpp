@@ -97,12 +97,12 @@ void Dino::update(float gameSpeed) {
     if (state == DEAD) return;
 
     if (isMovingLeft) {
-        x -= 5.0f;
+        x -= 10.0f;
         if (x < 0.0f) x = 0.0f;
         facingLeft = true;
     }
     if (isMovingRight) {
-        x += 5.0f;
+        x += 10.0f;
         if (x > WINDOW_WIDTH - width) x = WINDOW_WIDTH - width;
         facingLeft = false;
     }
@@ -170,7 +170,7 @@ void Dino::update(float gameSpeed) {
     // Animation logic
     if (state == RUNNING || state == DUCKING) {
         frameCounter++;
-        if (frameCounter > 7) { 
+        if (frameCounter > 3) { 
             currentFrame = (currentFrame + 1) % 3; 
             frameCounter = 0;
         }
@@ -181,15 +181,8 @@ void Dino::draw() {
     // Reset color to white so texture renders with its native colors
     glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
     
-    GLuint currentTex = 0;
-    SpriteFrame frame;
-    if (state == DUCKING) {
-        currentTex = duckTextures[currentFrame];
-        frame = duckFrames[currentFrame];
-    } else {
-        currentTex = runTextures[currentFrame];
-        frame = runFrames[currentFrame];
-    }
+    GLuint currentTex = runTextures[currentFrame];
+    SpriteFrame frame = runFrames[currentFrame];
 
     float scale = 40.0f / 591.0f; // Scale factor based on standard run height (591 pixels = 40 units)
     float drawWidth = frame.width * scale;
